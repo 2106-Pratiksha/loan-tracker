@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loan Tracker</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #f3f5f9; color: #1d2433; min-height: 100vh; }
+
+  /* App shell */
+  #app { display: flex; min-height: 100vh; }
+  #app.hidden { display: none; }
+  nav { width: 200px; background: #1d2b4f; color: #fff; padding: 20px 0; flex-shrink: 0; }
+  nav h1 { font-size: 18px; margin: 0 20px 4px; }
+  nav .who { font-size: 12px; color: #9fb0d8; margin: 0 20px 18px; word-break: break-all; }
+  nav button.menu { display: block; width: 100%; text-align: left; background: none; border: none; color: #cdd6ea; padding: 12px 20px; font-size: 15px; cursor: pointer; }
+  nav button.menu.active, nav button.menu:hover { background: #2c3e6b; color: #fff; }
+  nav .signout { margin: 18px 20px 0; }
+  main { flex: 1; padding: 24px; overflow-x: auto; }
+  h2 { margin-top: 0; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card .label { font-size: 13px; color: #6b7388; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 6px; }
+  .panel { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 24px; }
+  .panel h3 { margin-top: 0; font-size: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #eceff5; }
+  th { color: #6b7388; font-weight: 500; }
+  .alert { padding: 10px 12px; border-radius: 8px; margin-bottom: 8px; font-size: 14px; }
+  .alert.overdue { background: #fde8e8; color: #9b1c1c; }
+  .alert.soon { background: #fff4d6; color: #7a5b00; }
+  .alert.info { background: #e6f4ea; color: #1e5b2f; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; }
+  .badge.overdue { background: #fde8e8; color: #9b1c1c; }
+  .badge.soon { background: #fff4d6; color: #7a5b00; }
+  .badge.ok { background: #e6f4ea; color: #1e5b2f; }
+  form.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; align-items: end; }
+  label { font-size: 13px; color: #6b7388; display: flex; flex-direction: column; gap: 4px; }
+  input { padding: 8px; border: 1px solid #cfd6e4; border-radius: 6px; font-size: 14px; }
+  button.btn { background: #2c5fd6; color: #fff; border: none; padding: 9px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.btn.small { padding: 4px 8px; font-size: 12px; margin-right: 4px; }
+  button.btn.danger { background: #c0392b; }
+  button.btn.green { background: #2e8b57; }
+  button.btn.ghost { background: #e7ebf3; color: #1d2433; }
+  .muted { color: #6b7388; font-size: 13px; }
+  .hidden { display: none; }
+  .breakdown { font-size: 14px; line-height: 1.8; }
+  .breakdown strong { display: inline-block; min-width: 170px; }
+  .sync { font-size: 12px; color: #6b7388; margin-left: 10px; }
+
+  /* Login screen */
+  #auth { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .auth-card { background: #fff; border-radius: 14px; box-shadow: 0 4px 20px rgba(0,0,0,.08); padding: 28px; width: 100%; max-width: 380px; }
+  .auth-card h1 { margin: 0 0 4px; font-size: 22px; }
+  .auth-card h1 span { color: #2c5fd6; }
+  .auth-card p.sub { margin: 0 0 20px; color: #6b7388; font-size: 14px; }
+  .auth-card label { margin-bottom: 14px; }
+  .auth-card input { width: 100%; }
+  .auth-card .btn { width: 100%; padding: 11px; font-size: 15px; margin-top: 4px; }
+  .auth-toggle { text-align: center; margin-top: 16px; font-size: 14px; color: #6b7388; }
+  .auth-toggle a { color: #2c5fd6; cursor: pointer; text-decoration: underline; }
+  .auth-msg { font-size: 13px; padding: 10px; border-radius: 8px; margin-bottom: 14px; }
+  .auth-msg.err { background: #fde8e8; color: #9b1c1c; }
+  .auth-msg.warn { background: #fff4d6; color: #7a5b00; }
+  .auth-msg.ok { background: #e6f4ea; color: #1e5b2f; }
+
+  @media (max-width: 760px) {
+    #app { flex-direction: column; }
+    nav { width: 100%; display: flex; flex-wrap: wrap; align-items: center; padding: 10px; }
+    nav h1 { margin: 0 10px 0 8px; }
+    nav .who { width: 100%; margin: 6px 8px 0; order: 5; }
+    nav button.menu { width: auto; padding: 8px 12px; border-radius: 6px; }
+    nav .signout { margin: 0 0 0 auto; }
+    main { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="auth">
+  <div class="auth-card">
+    <h1>Loan<span>Tracker</span></h1>
+    <p class="sub" id="auth-sub">Sign in to your account</p>
+    <div id="auth-msg" class="auth-msg hidden"></div>
+    <label>Email<input id="au-email" type="email" autocomplete="username"></label>
+    <label>Password<input id="au-pass" type="password" autocomplete="current-password"></label>
+    <button class="btn" id="au-submit" onclick="authSubmit()">Sign in</button>
+    <div class="auth-toggle" id="au-toggle-wrap">
+      First time here? <a onclick="toggleAuthMode()">Create your admin account</a>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <nav>
+    <h1>Loan Tracker</h1>
+    <div class="who" id="nav-who"></div>
+    <button class="menu active" data-page="dashboard" onclick="showPage('dashboard')">Dashboard</button>
+    <button class="menu" data-page="customers" onclick="showPage('customers')">Customers</button>
+    <button class="menu" data-page="calculator" onclick="showPage('calculator')">Calculator</button>
+    <button class="btn ghost signout" onclick="signOutUser()">Sign out</button>
+  </nav>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section id="page-dashboard">
+      <h2>Dashboard <span class="sync" id="sync-status"></span></h2>
+      <div class="cards">
+        <div class="card"><div class="label">Customers</div><div class="value" id="d-customers">0</div></div>
+        <div class="card"><div class="label">Total lent</div><div class="value" id="d-lent">₹0</div></div>
+        <div class="card"><div class="label">Total due now</div><div class="value" id="d-due">₹0</div></div>
+        <div class="card"><div class="label">Interest earned (to date)</div><div class="value" id="d-interest">₹0</div></div>
+      </div>
+      <div class="panel">
+        <h3>Notifications</h3>
+        <div id="notifications"></div>
+      </div>
+      <div class="panel">
+        <h3>Who has to pay</h3>
+        <table>
+          <thead><tr><th>Customer</th><th>Next EMI date</th><th>EMI</th><th>Amount due</th><th>Status</th></tr></thead>
+          <tbody id="d-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section id="page-customers" class="hidden">
+      <h2>Customers</h2>
+      <div class="panel">
+        <h3 id="form-title">Add customer</h3>
+        <form class="grid" onsubmit="saveCustomer(event)">
+          <label>Name<input id="f-name" required></label>
+          <label>Phone<input id="f-phone"></label>
+          <label>Amount given (₹)<input id="f-principal" type="number" min="0" step="0.01" required></label>
+          <label>Interest rate (% per year)<input id="f-rate" type="number" min="0" step="0.01" required></label>
+          <label>Date given<input id="f-start" type="date" required></label>
+          <label>Monthly EMI (₹, optional)<input id="f-emi" type="number" min="0" step="0.01"></label>
+          <label>Next EMI date<input id="f-next" type="date"></label>
+          <div>
+            <button class="btn" type="submit">Save</button>
+            <button class="btn danger" type="button" onclick="resetForm()">Clear</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel">
+        <table>
+          <thead><tr><th>Name</th><th>Phone</th><th>Given</th><th>Given on</th><th>Rate</th><th>Due now</th><th>Actions</th></tr></thead>
+          <tbody id="c-table"></tbody>
+        </table>
+      </div>
+      <div class="panel hidden" id="detail">
+        <h3 id="detail-name"></h3>
+        <div class="breakdown" id="detail-body"></div>
+        <h3 style="margin-top:16px">Record a payment</h3>
+        <form class="grid" onsubmit="recordPayment(event)">
+          <label>Amount (₹)<input id="p-amount" type="number" min="0" step="0.01" required></label>
+          <label>Date<input id="p-date" type="date" required></label>
+          <div>
+            <button class="btn green" type="submit">Save payment</button>
+            <button class="btn" type="button" onclick="markEmiPaid()">Mark EMI paid</button>
+          </div>
+        </form>
+        <h3 style="margin-top:16px">Payment history</h3>
+        <table>
+          <thead><tr><th>Date</th><th>Amount</th><th></th></tr></thead>
+          <tbody id="p-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CALCULATOR -->
+    <section id="page-calculator" class="hidden">
+      <h2>Interest calculator</h2>
+      <div class="panel">
+        <form class="grid" onsubmit="runCalc(event)">
+          <label>Amount (₹)<input id="k-principal" type="number" min="0" step="0.01" required></label>
+          <label>Rate (% per year)<input id="k-rate" type="number" min="0" step="0.01" required></label>
+          <label>From date<input id="k-start" type="date" required></label>
+          <label>To date<input id="k-end" type="date"></label>
+          <div><button class="btn" type="submit">Calculate</button></div>
+        </form>
+        <div class="breakdown" id="k-result" style="margin-top:16px"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+/* ============================================================
+   STEP 1: paste your Firebase config between the quotes below.
+   You get this from the Firebase console (see setup steps).
+   ============================================================ */
+const firebaseConfig = {
+  apiKey: "AIzaSyAPWfZgqdnKsvy0XwGGWl6Kq_h-O9ALKVU",
+  authDomain: "loan-tracker-4a0a9.firebaseapp.com",
+  projectId: "loan-tracker-4a0a9",
+  storageBucket: "loan-tracker-4a0a9.firebasestorage.app",
+  messagingSenderId: "619005369723",
+  appId: "1:619005369723:web:640e881b9c6c1a866471de"
+};
+
+const CONFIGURED = !firebaseConfig.apiKey.startsWith("PASTE_");
+
+let auth = null, db = null, uid = null, unsub = null, authMode = "signin";
+let data = { customers: [] };
+let selectedId = null;
+
+/* ---------- helpers (same maths as the offline version) ---------- */
+function uidGen() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function money(n) { return "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtDate(s) { return s ? new Date(s + "T00:00:00").toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"; }
+function todayStr() { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function daysBetween(a, b) { return Math.max(0, Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000)); }
+function addMonths(s, n) { const d = new Date(s + "T00:00:00"); d.setMonth(d.getMonth() + n); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function interestTo(principal, rate, start, end) { const days = daysBetween(start, end); return { days, interest: principal * rate * days / (365 * 100) }; }
+function calcCustomer(c, asOf = todayStr()) {
+  const { days, interest } = interestTo(c.principal, c.rate, c.start, asOf);
+  const paid = (c.payments || []).reduce((s, p) => s + p.amount, 0);
+  const total = c.principal + interest;
+  const due = Math.max(0, total - paid);
+  let status = "ok";
+  if (c.nextDue) { if (c.nextDue < asOf) status = "overdue"; else if (daysBetween(asOf, c.nextDue) <= 7) status = "soon"; }
+  return { days, interest, paid, total, due, status };
+}
+
+/* ---------- Firestore paths ---------- */
+function custCol() { return collection(db, "users", uid, "customers"); }
+function custDoc(id) { return doc(db, "users", uid, "customers", id); }
+
+/* ---------- auth ---------- */
+function showAuthMsg(text, kind) {
+  const el = document.getElementById("auth-msg");
+  el.textContent = text; el.className = "auth-msg " + kind;
+  el.classList.toggle("hidden", !text);
+}
+window.toggleAuthMode = function () {
+  authMode = authMode === "signin" ? "signup" : "signin";
+  document.getElementById("auth-sub").textContent = authMode === "signin" ? "Sign in to your account" : "Create your admin account";
+  document.getElementById("au-submit").textContent = authMode === "signin" ? "Sign in" : "Create account";
+  document.getElementById("au-toggle-wrap").innerHTML = authMode === "signin"
+    ? 'First time here? <a onclick="toggleAuthMode()">Create your admin account</a>'
+    : 'Already have an account? <a onclick="toggleAuthMode()">Sign in</a>';
+  showAuthMsg("", "");
+};
+window.authSubmit = async function () {
+  const email = document.getElementById("au-email").value.trim();
+  const pass = document.getElementById("au-pass").value;
+  if (!email || !pass) { showAuthMsg("Enter your email and password.", "err"); return; }
+  try {
+    if (authMode === "signin") await signInWithEmailAndPassword(auth, email, pass);
+    else await createUserWithEmailAndPassword(auth, email, pass);
+  } catch (e) {
+    showAuthMsg(friendlyError(e.code), "err");
+  }
+};
+window.signOutUser = async function () { if (auth) await signOut(auth); };
+function friendlyError(code) {
+  const map = {
+    "auth/invalid-email": "That email address doesn't look right.",
+    "auth/missing-password": "Enter your password.",
+    "auth/weak-password": "Password should be at least 6 characters.",
+    "auth/email-already-in-use": "An account with this email already exists. Switch to Sign in.",
+    "auth/invalid-credential": "Email or password is incorrect.",
+    "auth/wrong-password": "Email or password is incorrect.",
+    "auth/user-not-found": "No account found. Create one first.",
+    "auth/network-request-failed": "Network problem. Check your internet connection."
+  };
+  return map[code] || ("Could not sign in (" + code + ").");
+}
+
+/* ---------- live data ---------- */
+function subscribe() {
+  document.getElementById("sync-status").textContent = "connecting…";
+  unsub = onSnapshot(custCol(), snap => {
+    data.customers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    document.getElementById("sync-status").textContent = "synced";
+    const active = document.querySelector("nav button.menu.active")?.dataset.page || "dashboard";
+    if (active === "dashboard") renderDashboard();
+    if (active === "customers") renderCustomers();
+    if (selectedId && !document.getElementById("detail").classList.contains("hidden")) openDetail(selectedId);
+  }, err => {
+    document.getElementById("sync-status").textContent = "sync error";
+    console.error(err);
+  });
+}
+
+/* ---------- writes ---------- */
+window.saveCustomer = async function (e) {
+  e.preventDefault();
+  const id = document.getElementById("form-title").dataset.editId || uidGen();
+  const existing = data.customers.find(c => c.id === id);
+  const record = {
+    name: document.getElementById("f-name").value.trim(),
+    phone: document.getElementById("f-phone").value.trim(),
+    principal: parseFloat(document.getElementById("f-principal").value),
+    rate: parseFloat(document.getElementById("f-rate").value),
+    start: document.getElementById("f-start").value,
+    emi: parseFloat(document.getElementById("f-emi").value) || 0,
+    nextDue: document.getElementById("f-next").value,
+    payments: existing ? (existing.payments || []) : []
+  };
+  try { await setDoc(custDoc(id), record); resetForm(); }
+  catch (err) { alert("Could not save: " + err.message); }
+};
+window.editCustomer = function (id) {
+  const c = data.customers.find(x => x.id === id);
+  document.getElementById("f-name").value = c.name;
+  document.getElementById("f-phone").value = c.phone;
+  document.getElementById("f-principal").value = c.principal;
+  document.getElementById("f-rate").value = c.rate;
+  document.getElementById("f-start").value = c.start;
+  document.getElementById("f-emi").value = c.emi || "";
+  document.getElementById("f-next").value = c.nextDue || "";
+  document.getElementById("form-title").textContent = "Edit customer";
+  document.getElementById("form-title").dataset.editId = id;
+  window.scrollTo(0, 0);
+};
+window.resetForm = function () {
+  document.querySelector("#page-customers form").reset();
+  document.getElementById("form-title").textContent = "Add customer";
+  delete document.getElementById("form-title").dataset.editId;
+};
+window.deleteCustomer = async function (id) {
+  if (!confirm("Delete this customer and all their payments?")) return;
+  try { await deleteDoc(custDoc(id)); if (selectedId === id) { selectedId = null; document.getElementById("detail").classList.add("hidden"); } }
+  catch (err) { alert("Could not delete: " + err.message); }
+};
+window.recordPayment = async function (e) {
+  e.preventDefault();
+  const c = data.customers.find(x => x.id === selectedId); if (!c) return;
+  const payments = [...(c.payments || []), { id: uidGen(), amount: parseFloat(document.getElementById("p-amount").value), date: document.getElementById("p-date").value }];
+  try { await updateDoc(custDoc(c.id), { payments }); document.getElementById("p-amount").value = ""; }
+  catch (err) { alert("Could not save payment: " + err.message); }
+};
+window.markEmiPaid = async function () {
+  const c = data.customers.find(x => x.id === selectedId);
+  if (!c || !c.emi) { alert("This customer has no EMI amount set."); return; }
+  const today = todayStr();
+  const payments = [...(c.payments || []), { id: uidGen(), amount: c.emi, date: today }];
+  const nextDue = addMonths(c.nextDue || today, 1);
+  try { await updateDoc(custDoc(c.id), { payments, nextDue }); }
+  catch (err) { alert("Could not update: " + err.message); }
+};
+window.deletePayment = async function (cid, pid) {
+  if (!confirm("Remove this payment?")) return;
+  const c = data.customers.find(x => x.id === cid);
+  const payments = (c.payments || []).filter(p => p.id !== pid);
+  try { await updateDoc(custDoc(cid), { payments }); }
+  catch (err) { alert("Could not remove: " + err.message); }
+};
+
+/* ---------- rendering (same as offline version) ---------- */
+function badge(status) {
+  const label = status === "overdue" ? "Overdue" : status === "soon" ? "Due soon" : "On track";
+  return `<span class="badge ${status}">${label}</span>`;
+}
+window.showPage = function (name) {
+  ["dashboard", "customers", "calculator"].forEach(p => document.getElementById("page-" + p).classList.toggle("hidden", p !== name));
+  document.querySelectorAll("nav button.menu").forEach(b => b.classList.toggle("active", b.dataset.page === name));
+  if (name === "dashboard") renderDashboard();
+  if (name === "customers") renderCustomers();
+};
+function renderDashboard() {
+  const today = todayStr();
+  let lent = 0, due = 0, interest = 0;
+  const rows = [], alerts = [];
+  data.customers.forEach(c => {
+    const r = calcCustomer(c, today);
+    lent += c.principal; due += r.due; interest += r.interest;
+    rows.push({ c, r });
+    if (r.status === "overdue") alerts.push(`<div class="alert overdue"><b>${esc(c.name)}</b> EMI was due on ${fmtDate(c.nextDue)}. Pending: ${money(r.due)}</div>`);
+    else if (r.status === "soon") alerts.push(`<div class="alert soon"><b>${esc(c.name)}</b> EMI of ${money(c.emi)} is due on ${fmtDate(c.nextDue)}</div>`);
+  });
+  document.getElementById("d-customers").textContent = data.customers.length;
+  document.getElementById("d-lent").textContent = money(lent);
+  document.getElementById("d-due").textContent = money(due);
+  document.getElementById("d-interest").textContent = money(interest);
+  document.getElementById("notifications").innerHTML = alerts.length ? alerts.join("") : `<div class="alert info">No EMIs due in the next 7 days.</div>`;
+  rows.sort((a, b) => b.r.due - a.r.due);
+  document.getElementById("d-table").innerHTML = rows.length
+    ? rows.map(({ c, r }) => `<tr><td>${esc(c.name)}</td><td>${fmtDate(c.nextDue)}</td><td>${c.emi ? money(c.emi) : "-"}</td><td>${money(r.due)}</td><td>${badge(r.status)}</td></tr>`).join("")
+    : `<tr><td colspan="5" class="muted">No customers yet. Add one from the Customers page.</td></tr>`;
+}
+function renderCustomers() {
+  const today = todayStr();
+  document.getElementById("c-table").innerHTML = data.customers.length
+    ? data.customers.map(c => {
+        const r = calcCustomer(c, today);
+        return `<tr><td>${esc(c.name)}</td><td>${esc(c.phone)}</td><td>${money(c.principal)}</td><td>${fmtDate(c.start)}</td><td>${c.rate}%</td><td>${money(r.due)}</td>
+          <td><button class="btn small" onclick="openDetail('${c.id}')">View</button>
+          <button class="btn small" onclick="editCustomer('${c.id}')">Edit</button>
+          <button class="btn small danger" onclick="deleteCustomer('${c.id}')">Delete</button></td></tr>`;
+      }).join("")
+    : `<tr><td colspan="7" class="muted">No customers yet.</td></tr>`;
+  if (selectedId) openDetail(selectedId);
+}
+window.openDetail = function (id) {
+  selectedId = id;
+  const c = data.customers.find(x => x.id === id);
+  if (!c) return;
+  const today = todayStr();
+  const r = calcCustomer(c, today);
+  document.getElementById("detail").classList.remove("hidden");
+  document.getElementById("detail-name").textContent = c.name + " - statement";
+  document.getElementById("detail-body").innerHTML = `
+    <div><strong>Amount given:</strong> ${money(c.principal)}</div>
+    <div><strong>Given on:</strong> ${fmtDate(c.start)}</div>
+    <div><strong>Interest rate:</strong> ${c.rate}% per year</div>
+    <div><strong>Days elapsed:</strong> ${r.days}</div>
+    <div><strong>Interest till ${fmtDate(today)}:</strong> ${money(r.interest)}</div>
+    <div><strong>Total (principal + interest):</strong> ${money(r.total)}</div>
+    <div><strong>Already paid:</strong> ${money(r.paid)}</div>
+    <div><strong>Amount due now:</strong> <b>${money(r.due)}</b></div>
+    <div><strong>Monthly EMI:</strong> ${c.emi ? money(c.emi) : "-"}</div>
+    <div><strong>Next EMI date:</strong> ${fmtDate(c.nextDue)} ${badge(r.status)}</div>`;
+  document.getElementById("p-date").value = today;
+  document.getElementById("p-table").innerHTML = (c.payments || []).length
+    ? [...c.payments].reverse().map(p => `<tr><td>${fmtDate(p.date)}</td><td>${money(p.amount)}</td><td><button class="btn small danger" onclick="deletePayment('${c.id}','${p.id}')">Remove</button></td></tr>`).join("")
+    : `<tr><td colspan="3" class="muted">No payments recorded.</td></tr>`;
+};
+window.runCalc = function (e) {
+  e.preventDefault();
+  const p = parseFloat(document.getElementById("k-principal").value);
+  const rate = parseFloat(document.getElementById("k-rate").value);
+  const start = document.getElementById("k-start").value;
+  const end = document.getElementById("k-end").value || todayStr();
+  const { days, interest } = interestTo(p, rate, start, end);
+  document.getElementById("k-result").innerHTML = `
+    <div><strong>Days:</strong> ${days}</div>
+    <div><strong>Interest:</strong> ${money(interest)}</div>
+    <div><strong>Total to collect:</strong> <b>${money(p + interest)}</b></div>`;
+};
+
+/* ---------- boot ---------- */
+document.getElementById("k-end").value = todayStr();
+
+if (!CONFIGURED) {
+  showAuthMsg("This app isn't connected to your database yet. Open the file and paste your Firebase config where it says PASTE_…, then reload. Steps are in the message from the assistant.", "warn");
+  document.getElementById("au-submit").disabled = true;
+} else {
+  const app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      uid = user.uid;
+      document.getElementById("auth").classList.add("hidden");
+      document.getElementById("app").classList.remove("hidden");
+      document.getElementById("nav-who").textContent = user.email;
+      subscribe();
+      showPage("dashboard");
+    } else {
+      uid = null;
+      if (unsub) { unsub(); unsub = null; }
+      document.getElementById("app").classList.add("hidden");
+      document.getElementById("auth").classList.remove("hidden");
+      document.getElementById("au-pass").value = "";
+    }
+  });
+}
+</script>
+</body>
+</html>
